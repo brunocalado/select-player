@@ -109,13 +109,17 @@ export class SelectPlayerAPI {
   }
 
   static showSplash(imgPath, name) {
-    // Som
+    // --- Lógica de Som (Corrigida para V13) ---
     const soundPath = game.settings.get('select-player', 'selectionSound');
     if (soundPath) {
-        foundry.audio.AudioHelper.play({ src: soundPath, volume: 0.8, loop: false });
+        // Toca no canal 'environment' (Ambiente) conforme solicitado
+        // A API game.audio.play permite definir o canal explicitamente
+        //game.audio.play(soundPath, { channel: "environment", volume: 0.8, loop: false });
+        foundry.audio.AudioHelper.play({src: soundPath, channel: "environment", loop: false, volume: 1});
+
     }
 
-    // Visual
+    // --- Lógica Visual ---
     const existing = document.getElementById('select-player-splash');
     if (existing) existing.remove();
 
