@@ -1,0 +1,23 @@
+<div class="select-player-config">
+    <p class="notes">Selecione uma imagem customizada para o "Splash" de cada jogador. Se deixar em branco, o avatar padrão será usado.</p>
+    
+    <div class="players-list">
+        {{#each users}}
+        <div class="form-group player-row">
+            <div class="player-label">
+                <img src="{{this.avatar}}" width="32" height="32" style="border-radius: 50%; margin-right: 8px;">
+                <label>{{this.name}}</label>
+            </div>
+            <div class="form-fields">
+                <file-picker name="{{this.id}}" type="image" value="{{this.customImage}}"></file-picker>
+            </div>
+        </div>
+        {{/each}}
+    </div>
+
+    <div class="form-footer">
+        <button type="submit" name="submit" class="save-button">
+            <i class="fas fa-save"></i> Salvar Configurações
+        </button>
+    </div>
+</div>

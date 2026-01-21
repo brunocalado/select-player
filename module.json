@@ -1,0 +1,27 @@
+{
+  "id": "select-player",
+  "title": "Select Player",
+  "version": "0.0.1",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "authors": [
+    {
+      "name": "Mestre Digital"
+    }
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/style.css"
+  ],
+  
+  "description": "Seleciona alguém conectado.",
+
+  "url": "https://github.com/brunocalado/select-player",
+  "manifest": "https://raw.githubusercontent.com/brunocalado/select-player/main/module.json",
+  "download": "https://codeload.github.com/brunocalado/select-player/zip/main"
+  
+}
