@@ -10,12 +10,12 @@ export class SelectPlayerConfig extends HandlebarsApplicationMixin(ApplicationV2
     tag: "form",
     id: "select-player-config",
     window: {
-      title: "Select Player - Configuração",
-      icon: "fas fa-cogs",
+      title: "Select Player - Configurar Jogadores",
+      icon: "fas fa-user-edit",
       resizable: true,
-      width: 500
+      width: 600 // Aumentei um pouco para caber os novos campos
     },
-    position: { width: 500, height: "auto" },
+    position: { width: 600, height: "auto" },
     form: {
       handler: SelectPlayerConfig.submit,
       closeOnSubmit: true
@@ -27,20 +27,37 @@ export class SelectPlayerConfig extends HandlebarsApplicationMixin(ApplicationV2
   };
 
   async _prepareContext(_options) {
-    const savedImages = game.settings.get('select-player', 'playerImages') || {};
-    const users = game.users.filter(u => !u.isGM).map(u => ({
-      id: u.id,
-      name: u.name,
-      avatar: u.avatar,
-      customImage: savedImages[u.id] || "" 
-    }));
+    // Busca a configuração nova (playerConfig)
+    const playerConfig = game.settings.get('select-player', 'playerConfig') || {};
+    
+    // Filtra jogadores (não GM)
+    const users = game.users.filter(u => !u.isGM).map(u => {
+      const config = playerConfig[u.id] || {};
+      
+      // Tenta pegar o nome do Actor para mostrar como placeholder (dica visual)
+      const actorName = u.character ? u.character.name : "Sem Actor Linkado";
+
+      return {
+        id: u.id,
+        userName: u.name,
+        actorName: actorName,
+        avatar: u.avatar,
+        // Dados salvos
+        customImage: config.image || "",
+        customName: config.name || ""
+      };
+    });
+
     return { users };
   }
 
   static async submit(event, form, formData) {
-    const data = formData.object;
-    await game.settings.set('select-player', 'playerImages', data);
-    ui.notifications.info("Select Player: Imagens salvas com sucesso!");
+    // formData.object retorna chaves planas como "userid.image": "valor"
+    // Usamos expandObject para transformar em { userid: { image: "...", name: "..." } }
+    const data = foundry.utils.expandObject(formData.object);
+    
+    await game.settings.set('select-player', 'playerConfig', data);
+    ui.notifications.info("Select Player: Configurações salvas!");
   }
 }
 
@@ -52,7 +69,6 @@ export class SelectPlayerConfig extends HandlebarsApplicationMixin(ApplicationV2
 export class SelectPlayerAPI {
   
   static async Players() {
-    // 1. Filtrar Jogadores Elegíveis
     const eligibleUsers = game.users.filter(u => u.active && !u.isGM);
     
     if (eligibleUsers.length === 0) {
@@ -60,33 +76,46 @@ export class SelectPlayerAPI {
       return null;
     }
 
-    // 2. Sortear
+    // --- Sorteio ---
     const randomIndex = Math.floor(Math.random() * eligibleUsers.length);
     const selectedUser = eligibleUsers[randomIndex];
+    const userId = selectedUser.id;
 
-    // 3. Pegar imagem
-    const savedImages = game.settings.get('select-player', 'playerImages') || {};
-    const displayImage = savedImages[selectedUser.id] || selectedUser.avatar;
+    // --- Resolução de Dados (Config > Actor > User) ---
+    const playerConfig = game.settings.get('select-player', 'playerConfig') || {};
+    const userSettings = playerConfig[userId] || {};
 
-    // 4. Criar Mensagem no Chat com FLAG especial
-    // A flag será o gatilho para o efeito visual em TODOS os clients (via Hook createChatMessage)
-    await this._postChatMessage(selectedUser, displayImage);
+    // 1. Resolução do NOME
+    let displayName = userSettings.name; // Prioridade 1: Customizado
+    if (!displayName && selectedUser.character) {
+        displayName = selectedUser.character.name; // Prioridade 2: Actor Linkado
+    }
+    if (!displayName) {
+        displayName = selectedUser.name; // Prioridade 3: Nome do Usuário Foundry
+    }
+
+    // 2. Resolução da IMAGEM
+    let displayImage = userSettings.image; // Prioridade 1: Customizada
+    // Opcional: Se quiser usar a imagem do Actor se não tiver customizada, descomente abaixo:
+    // if (!displayImage && selectedUser.character) displayImage = selectedUser.character.img;
+    if (!displayImage) {
+        displayImage = selectedUser.avatar; // Prioridade Final: Avatar do Usuário
+    }
+
+    // --- Execução ---
+    await this._postChatMessage(selectedUser, displayName, displayImage);
     
-    return selectedUser;
+    return { user: selectedUser, name: displayName };
   }
 
-  /**
-   * Cria o elemento visual na tela (DOM) e TOCA O SOM.
-   */
   static showSplash(imgPath, name) {
-    // --- Lógica de Som (Corrigida para V13) ---
+    // Som
     const soundPath = game.settings.get('select-player', 'selectionSound');
     if (soundPath) {
-        // Namespace correto na V13: foundry.audio.AudioHelper
         foundry.audio.AudioHelper.play({ src: soundPath, volume: 0.8, loop: false });
     }
 
-    // --- Lógica Visual ---
+    // Visual
     const existing = document.getElementById('select-player-splash');
     if (existing) existing.remove();
 
@@ -107,18 +136,18 @@ export class SelectPlayerAPI {
     }, 3000);
   }
 
-  static async _postChatMessage(user, displayImage) {
+  static async _postChatMessage(user, finalName, finalImage) {
+    // Usamos o nome resolvido (finalName) no card do chat também
     const content = `
       <div class="select-player-card">
         <h3>★ Selecionado!</h3>
         <div class="winner-info">
-          <img src="${displayImage}" alt="${user.name}" />
-          <span class="winner-name">${user.name}</span>
+          <img src="${finalImage}" alt="${finalName}" />
+          <span class="winner-name">${finalName}</span>
         </div>
       </div>
     `;
 
-    // Adicionamos 'flags' para que o Hook identifique que essa mensagem deve disparar o Splash
     await ChatMessage.create({
       content: content,
       speaker: ChatMessage.getSpeaker({ alias: "Gamemaster" }),
@@ -126,8 +155,8 @@ export class SelectPlayerAPI {
       flags: {
         "select-player": {
           isResult: true,
-          image: displayImage,
-          name: user.name
+          image: finalImage,
+          name: finalName
         }
       }
     });

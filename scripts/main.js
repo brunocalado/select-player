@@ -3,15 +3,17 @@ import { SelectPlayerAPI, SelectPlayerConfig } from './api.js';
 const MODULE_ID = 'select-player';
 
 Hooks.once('init', () => {
-  // Settings
-  game.settings.register(MODULE_ID, 'playerImages', {
-    name: "Player Images",
+  // 1. Setting para armazenar Configuração (Imagem e Nome)
+  // Mudamos de 'playerImages' para 'playerConfig' para suportar objetos completos
+  game.settings.register(MODULE_ID, 'playerConfig', {
+    name: "Player Configuration",
     scope: "world",
     config: false,
     type: Object,
     default: {}
   });
 
+  // 2. Setting para o Som de Seleção
   game.settings.register(MODULE_ID, 'selectionSound', {
     name: "Som de Seleção",
     hint: "Arquivo de áudio que toca quando um jogador é sorteado.",
@@ -22,16 +24,17 @@ Hooks.once('init', () => {
     filePicker: "audio"
   });
 
+  // 3. Menu de Configuração
   game.settings.registerMenu(MODULE_ID, 'configMenu', {
-    name: "Configurar Imagens (Splash)",
+    name: "Configurar Jogadores (Splash & Nomes)",
     label: "Abrir Configuração",
-    hint: "Defina imagens personalizadas para o efeito visual.",
-    icon: "fas fa-images",
+    hint: "Defina imagens e nomes personalizados para o sorteio.",
+    icon: "fas fa-user-cog",
     type: SelectPlayerConfig,
     restricted: true
   });
 
-  // API Global
+  // 4. API Global
   window.Select = {
     Players: SelectPlayerAPI.Players.bind(SelectPlayerAPI),
     Config: () => new SelectPlayerConfig().render(true)
@@ -42,16 +45,12 @@ Hooks.once('init', () => {
 
 /**
  * Hook: createChatMessage
- * Este hook roda em TODOS os clientes conectados quando uma mensagem é criada.
- * Usamos isso para sincronizar o efeito visual sem depender de sockets manuais.
+ * Sincroniza o efeito visual entre todos os clientes.
  */
 Hooks.on('createChatMessage', (message) => {
-  // Verifica se a mensagem tem a flag do nosso módulo
   const flags = message.flags?.[MODULE_ID];
   
   if (flags && flags.isResult) {
-    console.log(`${MODULE_ID} | Mensagem de sorteio detectada via Hook.`);
-    // Dispara o efeito visual e sonoro localmente para quem recebeu a mensagem
     SelectPlayerAPI.showSplash(flags.image, flags.name);
   }
 });
